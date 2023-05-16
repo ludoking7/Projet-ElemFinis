@@ -43,7 +43,7 @@ int main(void)
 
     printf(" ==== Soluce : \n");
     for (int i=0; i<theProblem->geometry->theNodes->nNodes*2; i++) {
-        if (i % 2 == 0) printf("U%d = %14.7e", i/2, -theSoluce[i]);
+        if (i % 2 == 0) printf("U%d = %14.7e", i/2, theSoluce[i]);
         else printf("V%d = %14.7e", i/2, theSoluce[i]); 
         
         if (theProblem->constrainedNodes[i] == -1) {
