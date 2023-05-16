@@ -106,7 +106,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "C:/Program Files/CMake/share/cmake-3.26/Modules/Platform/Windows-windres.cmake"
   "C:/Program Files/CMake/share/cmake-3.26/Modules/Platform/Windows.cmake"
   "C:/Program Files/CMake/share/cmake-3.26/Modules/Platform/WindowsPaths.cmake"
-  "C:/Users/ludov/OneDrive/Documents/UCLouvain/Q6/ElemFinis/Project El Lin Working/Project/CMakeLists.txt"
+  "C:/Users/ludov/OneDrive/Documents/UCLouvain/Q6/ElemFinis/Project El Lin Working BandSolver/Project/CMakeLists.txt"
   "CMakeFiles/3.26.0-rc4/CMakeCCompiler.cmake"
   "CMakeFiles/3.26.0-rc4/CMakeCXXCompiler.cmake"
   "CMakeFiles/3.26.0-rc4/CMakeRCCompiler.cmake"

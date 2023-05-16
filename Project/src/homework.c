@@ -72,7 +72,7 @@ double *femElasticitySolve(femProblem *theProblem)
             // Partie axisymétrique :  
             
             if (theProblem -> planarStrainStress  == AXISYM){
-
+                fprintf(stdout, "Axisymétrique\n");
                 for (i = 0; i < theSpace->n; i++) { 
                     for(j = 0; j < theSpace->n; j++) {
                         A[mapX[i]][mapX[j]] += (dphidx[i] * a * r * dphidx[j] +
@@ -98,26 +98,22 @@ double *femElasticitySolve(femProblem *theProblem)
 
             // Partie plan :
             else {
+                //fprintf(stdout, "Plan\n");
                 for (i = 0; i < theSpace->n; i++) { 
                     for(j = 0; j < theSpace->n; j++) {
                         A[mapX[i]][mapX[j]] += (dphidx[i] * a * dphidx[j] + 
-                                                dphidy[i] * c * dphidy[j]) * jac * weight;                                                                                            
+                                                dphidy[i] * c * dphidy[j]) * jac * weight;                                                                                                              
                         A[mapX[i]][mapY[j]] += (dphidx[i] * b * dphidy[j] + 
                                                 dphidy[i] * c * dphidx[j]) * jac * weight;                                                                                           
                         A[mapY[i]][mapX[j]] += (dphidy[i] * b * dphidx[j] + 
                                                 dphidx[i] * c * dphidy[j]) * jac * weight;                                                                                            
                         A[mapY[i]][mapY[j]] += (dphidy[i] * a * dphidy[j] + 
                                                 dphidx[i] * c * dphidx[j]) * jac * weight; }}
+                
                 for (i = 0; i < theSpace->n; i++) {
                     B[mapY[i]] -= phi[i] * g * rho * jac * weight; }}} 
     
     }
-
-    // Je dois créer un nouveau the Rule d'intégration pour le cas axisymmétrique des conditions de Neumann
-    // Sur les segments, pour intégrer on doit multiplier r et les fonctions de forme. On va intégrer pour les 
-    // points -sqrt(3)/3 et sqrt(3)/3. On va donc créer un nouveau theRule avec ces points et les poids qui vont avec. 
-    // Ces poids valent 1. Le jacobien est déja géré par le sqrt(pow(x2-x1,2) + pow(y2-y1,2))/2.
-    //
 
 
     // Neumann
@@ -184,20 +180,22 @@ double *femElasticitySolve(femProblem *theProblem)
                 // Neumann, cas plan :
                 else{
                     integral = sqrt(pow(x2-x1,2) + pow(y2-y1,2))/2;
-                    }  
 
-                if (theCondition -> type == NEUMANN_X){
-                    B[2*iNode1] += integral*theCondition->value;
-                    B[2*iNode2] += integral*theCondition->value; 
-                }
-                else if (theCondition -> type == NEUMANN_Y){
-                    B[2*iNode1+1] += integral*theCondition->value;
-                    B[2*iNode2+1] += integral*theCondition->value; // weight = 1 donc pas esoin et jac est deja h/2 car dx/dxsi = h/2 et c'est en 1D
-                    
-                }
-                else {
-                    Error("The boundary condition is not a Neumann X, Y condition");
-                }
+                    if (theCondition -> type == NEUMANN_X){
+                        B[2*iNode1] += integral*theCondition->value;
+                        B[2*iNode2] += integral*theCondition->value; 
+                        }
+                    else if (theCondition -> type == NEUMANN_Y){
+                        B[2*iNode1+1] += integral*theCondition->value;
+                        B[2*iNode2+1] += integral*theCondition->value; // weight = 1 donc pas esoin et jac est deja h/2 car dx/dxsi = h/2 et c'est en 1D
+                        
+                    }
+                    else {
+                        Error("The boundary condition is not a Neumann X, Y condition");
+                    }
+                        }  
+
+                
             }
         }
     }   
@@ -215,7 +213,7 @@ double *femElasticitySolve(femProblem *theProblem)
 
              }
     }
-                            
+    femFullSystemPrint(theSystem);                     
     return femFullSystemEliminate(theSystem);
 }
 

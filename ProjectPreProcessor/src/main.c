@@ -54,10 +54,10 @@ int main(void)
     double nu  = 0.3;
     double rho = 7.85e3; 
     double g   = 9.81;
-    femProblem* theProblem = femElasticityCreate(theGeometry,E,nu,rho,g,PLANAR_STRAIN);
+    femProblem* theProblem = femElasticityCreate(theGeometry,E,nu,rho,0,PLANAR_STRESS);
     femElasticityAddBoundaryCondition(theProblem,"Bottom",DIRICHLET_Y,0.0);
-    femElasticityAddBoundaryCondition(theProblem,"Top",NEUMANN_Y,100);
-    theProblem->constrainedNodes[6] = 0;
+    femElasticityAddBoundaryCondition(theProblem,"Top",NEUMANN_Y,-100);
+    
 
     femElasticityPrint(theProblem);
     femElasticityWrite(theProblem,"../../connexion/problem.txt");

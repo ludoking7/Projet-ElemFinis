@@ -1,4 +1,4 @@
-# Install script for directory: C:/Users/ludov/OneDrive/Documents/UCLouvain/Q6/ElemFinis/Project El Lin Working/ProjectPreProcessor/glfw
+# Install script for directory: C:/Users/ludov/OneDrive/Documents/UCLouvain/Q6/ElemFinis/Project El Lin Working BandSolver/ProjectPreProcessor/glfw
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -39,7 +39,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("C:/Users/ludov/OneDrive/Documents/UCLouvain/Q6/ElemFinis/Project El Lin Working/ProjectPreProcessor/build/glfw/src/cmake_install.cmake")
+  include("C:/Users/ludov/OneDrive/Documents/UCLouvain/Q6/ElemFinis/Project El Lin Working BandSolver/ProjectPreProcessor/build/glfw/src/cmake_install.cmake")
 
 endif()
 

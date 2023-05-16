@@ -22,8 +22,11 @@ int main(void)
 //
 //  -1- Lecture des donnees
 //
-
-
+    double E   = 211.e9;
+    double nu  = 0.3;
+    double rho = 7.85e3; 
+    double g   = 9.81;
+    double q = 100;
     femGeo* theGeometry = geoGetGeometry();   
     geoMeshRead("../../connexion/mesh.txt");
     
@@ -34,7 +37,21 @@ int main(void)
     femFieldRead(&n,2,&theSoluce[0],"../../connexion/U.txt");
     femFieldRead(&n,2,&theSoluce[1],"../../connexion/V.txt");
     femElasticityPrint(theProblem);
-    
+
+    double *X = theProblem->geometry->theNodes->X;
+    double *Y = theProblem->geometry->theNodes->Y;
+
+    printf(" ==== Soluce : \n");
+    for (int i=0; i<theProblem->geometry->theNodes->nNodes*2; i++) {
+        if (i % 2 == 0) printf("U%d = %14.7e", i/2, -theSoluce[i]);
+        else printf("V%d = %14.7e", i/2, theSoluce[i]); 
+        
+        if (theProblem->constrainedNodes[i] == -1) {
+            if (i%2==0) printf("\t expected : %14.7e\n", q*nu*(X[i/2])/E);
+            else        printf("\t expected : %14.7e\n", -q*Y[i/2]/E);
+        }
+        else printf("\t exepcted :  0.0\n");
+    }
     
 //
 //  -2- Deformation du maillage pour le plot final

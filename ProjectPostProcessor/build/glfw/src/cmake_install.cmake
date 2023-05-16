@@ -1,4 +1,4 @@
-# Install script for directory: C:/Users/ludov/OneDrive/Documents/UCLouvain/Q6/ElemFinis/Project El Lin Working/ProjectPostProcessor/glfw/src
+# Install script for directory: C:/Users/ludov/OneDrive/Documents/UCLouvain/Q6/ElemFinis/Project El Lin Working BandSolver/ProjectPostProcessor/glfw/src
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
