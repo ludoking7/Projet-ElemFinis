@@ -449,9 +449,6 @@ double* femFullSystemEliminate(femFullSystem *mySystem)
     return(mySystem->B);    
 }
 
-
-
-
 void  femFullSystemConstrain(femFullSystem *mySystem, 
                              int myNode, double myValue) 
 {
@@ -756,6 +753,211 @@ void femWarning(char *text, int line, char *file)
     printf("\n-------------------------------------------------------------------------------- ");
     printf("\n  Warning in %s at line %d : \n  %s\n", file, line, text);
     printf("--------------------------------------------------------------------- Yek Yek !! \n\n");                                              
+}
+
+// Band System ///////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+void femBandSystemAdd(femBandSystem *myBandSystem, int row, int col, double value){
+    int band = myBandSystem->band;
+    int size = myBandSystem->size;
+    if (fabs(row - col) <= band){
+        myBandSystem->A[row][col-row+band] = value;
+    }
+    else{
+        printf("Error : Element out of band");
+    }
+}    
+
+int femCompareBandNode(const void* a, const void* b){
+    femBandNode* nodeA = (femBandNode*)a;
+    femBandNode* nodeB = (femBandNode*)b;
+    if(nodeA->x < nodeB->x){
+        return -1;
+    }
+    else if(nodeA->x > nodeB->x){
+        return 1;
+    }
+    else{
+        return 0;
+        }
+    }
+
+
+void femPermutation(femTriplet* triplet,femNodes* theNodes, int count, double* perm){
+    // Créer Nodes
+    femBandNode *bandNodes = malloc(sizeof(femBandNode)*theNodes->nNodes);
+    for (int i = 0; i < theNodes->nNodes; i++){
+        bandNodes[i].x = theNodes->X[i];
+        bandNodes[i].y = theNodes->Y[i];
+        bandNodes[i].index = i;
+    }
+    // Fonction de comparaison pour permutation
+    qsort(bandNodes,theNodes->nNodes,sizeof(femBandNode),femCompareBandNode);
+
+    // Faire permutation
+    for (int i = 0; i < theNodes->nNodes; i++){
+        perm[2*bandNodes[i].index] = i*2;
+        perm[2*bandNodes[i].index+1] = i*2+1;
+    }
+
+    // Faire permutation sur triplet
+    for (int i = 0; i < count; i++){
+        triplet[i].row = perm[triplet[i].row];
+        triplet[i].col = perm[triplet[i].col];
+    }
+}
+
+int femComputeBand(femTriplet* triplet, int count, int size){
+    int band = 0;
+    for (int i = 0; i < count; i++){
+        if (fabs(triplet[i].row - triplet[i].col) > band){
+            band = fabs(triplet[i].row - triplet[i].col);
+        }
+    }
+    if (band > size){
+        band = size;
+    }
+    return band;
+}
+
+femBandSystem *femBandSystemCreate(int size, int band)
+{
+    femBandSystem *theSystem = malloc(sizeof(femBandSystem));
+    femBandSystemAlloc(theSystem, size, band);
+    femBandSystemInit(theSystem, band);
+    return theSystem; 
+}
+
+void femBandSystemFree(femBandSystem *theSystem)
+{
+    free(theSystem->A);
+    free(theSystem->B);
+    free(theSystem);
+}
+
+void femBandSystemAlloc(femBandSystem *mySystem, int size, int band)
+{
+    int i;  
+    double *elem = malloc(sizeof(double) * size * (band+1)); 
+    mySystem->A = malloc(sizeof(double*) * size); 
+    mySystem->B = elem;
+    mySystem->A[0] = elem + size;  
+    mySystem->size = size;
+    mySystem->band = band;
+    for (i=1 ; i < size ; i++) 
+        mySystem->A[i] = mySystem->A[i-1] + band + 1;
+}
+
+
+void femBandSystemInit(femBandSystem *mySystem, int band)
+{
+    int i,j;
+    int size = mySystem->size;
+    for (i=0 ; i < size ; i++) 
+        for (j=0 ; j < band+1 ; j++) 
+            mySystem->A[i][j] = 0;
+    for (i=0 ; i < size ; i++) 
+        mySystem->B[i] = 0;
+}
+
+void femBandSystemPrint(femBandSystem *mySystem)
+{
+    double  **A, *B;
+    int     i, j, size, band;
+    
+    A    = mySystem->A;
+    B    = mySystem->B;
+    size = mySystem->size;
+    band = mySystem->band;
+    
+    for (i=0; i < size; i++) {
+        for (j=0; j < band+1; j++)
+            if (A[i][j] == 0)  printf("         ");   
+            else               printf(" %+.1e",A[i][j]);
+        printf(" :  %+.1e \n",B[i]); }
+}
+
+double* femBandSystemEliminate(femBandSystem *myBandSystem, double *x)
+{
+    double  **A, *B, factor;
+    int     i, j, k, size, band;
+    
+    A    = myBandSystem->A;
+    B    = myBandSystem->B;
+    size = myBandSystem->size;
+    band = myBandSystem->band;
+    
+    /* Gauss elimination */
+    
+    for (k=0; k < size; k++) {
+        if ( fabs(A[k][band]) <= 1e-16 ) {
+            printf("Pivot index %d  ",k);
+            printf("Pivot value %e  ",A[k][band]);
+            Error("Cannot eliminate with such a pivot"); }
+        for (i = k+1 ; i <  size; i++) {
+            factor = A[i][band] / A[k][band];
+            for (j = k+1 ; j < band+1; j++) 
+                A[i][j] = A[i][j] - A[k][j] * factor;
+            B[i] = B[i] - B[k] * factor; }}
+    
+    /* Back-substitution */
+    
+    for (i = size-1; i >= 0 ; i--) {
+        factor = 0;
+        for (j = i+1 ; j < band+1; j++)
+            factor += A[i][j] * B[j];
+        B[i] = ( B[i] - factor)/A[i][band]; }
+    
+    return(myBandSystem->B);    
+}
+
+
+double* femFullSystemElimitateBand(femFullSystem *mySystem,femNodes* theNodes){
+    /*Je crée ma sous structure triplet*/
+    int count = 0;
+    for (int i = 0; i < mySystem ->size; i++){
+        for(int j = 0 ; j < mySystem -> size ; j++){
+            if(mySystem ->A[i][j] != 0.0){
+                count += 1;
+            }
+        }
+    }
+    femTriplet *triplet = malloc(sizeof(femTriplet)*count);
+    int n = 0;
+    for (int i = 0; i < mySystem ->size; i++){
+        for(int j = 0 ; j < mySystem -> size ; j++){
+            if(mySystem ->A[i][j] != 0.0){
+                triplet[n].row = i;
+                triplet[n].col = j;
+                triplet[n].value = mySystem ->A[i][j];
+                n += 1;
+            }
+            
+        }
+    }
+    // Permutation
+    double* perm = malloc(theNodes->nNodes * sizeof(double));
+    femPermutation(triplet,theNodes,count,perm);
+
+    // On calcule la bande
+    int band = femComputeBand(triplet,count,mySystem->size);
+
+    // On initialise notre nouveau système bande
+    femBandSystem *myBandSystem = femBandSystemCreate(mySystem->size,band);
+
+    // On remplit notre nouveau système bande avec les valeurs de notre ancien système full
+    for (int i = 0; i < count; i++){
+        int row = triplet[i].row;
+        int col = triplet[i].col;
+        double value = triplet[i].value;
+        femBandSystemAdd(myBandSystem,row,col,value);
+    }
+    myBandSystem->B = mySystem->B;
+
+    return femBandSystemEliminate(myBandSystem, perm);
+
 }
 
 

@@ -8,7 +8,7 @@
 
 
 
-double *femElasticitySolve(femProblem *theProblem)
+double *femElasticitySolve(femProblem *theProblem, femSolverType typeSolver)
 {
 
     femFullSystem  *theSystem = theProblem->system;
@@ -200,7 +200,7 @@ double *femElasticitySolve(femProblem *theProblem)
         }
     }   
     
-  
+    
     int *theConstrainedNodes = theProblem->constrainedNodes;     
     for (int i=0; i < theSystem->size; i++) {
         if (theConstrainedNodes[i] != -1) {
@@ -213,7 +213,11 @@ double *femElasticitySolve(femProblem *theProblem)
 
              }
     }
-    femFullSystemPrint(theSystem);                     
-    return femFullSystemEliminate(theSystem);
+    femFullSystemPrint(theSystem); 
+
+    if (typeSolver == FULL) return femFullSystemEliminate(theSystem);
+    else if (typeSolver == BAND) return femFullSystemElimitateBand(theSystem,theNodes);
+    else Error("Unexpected system type");                   
+    
 }
 

@@ -19,7 +19,7 @@ int main(void)
     femProblem* theProblem = femElasticityRead(theGeometry,"../../connexion/problem.txt");
     femElasticityPrint(theProblem);
     theProblem->constrainedNodes[0] = 0;
-    double *theSoluce = femElasticitySolve(theProblem); 
+    double *theSoluce = femElasticitySolve(theProblem, BAND); 
     femNodes *theNodes = theGeometry->theNodes;
     femFieldWrite(theNodes->nNodes,2,&theSoluce[0],"../../connexion/U.txt");
     femFieldWrite(theNodes->nNodes,2,&theSoluce[1],"../../connexion/V.txt");

@@ -30,6 +30,8 @@ typedef enum {DIRICHLET_X,DIRICHLET_Y,DIRICHLET_N,DIRICHLET_T,
               NEUMANN_X,NEUMANN_Y,NEUMANN_N,NEUMANN_T} femBoundaryType;
 typedef enum {PLANAR_STRESS,PLANAR_STRAIN,AXISYM} femElasticCase;
 
+typedef enum {FULL, BAND} femSolverType;
+
 
 typedef struct {
     int nNodes;
