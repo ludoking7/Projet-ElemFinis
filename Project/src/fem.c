@@ -611,20 +611,19 @@ femProblem* femElasticityRead(femGeo* theGeometry, const char *filename)
     femProblem *theProblem = malloc(sizeof(femProblem));
     theProblem->nBoundaryConditions = 0;
     theProblem->conditions = NULL;
-    
     int size = 2*theGeometry->theNodes->nNodes;
     theProblem->constrainedNodes = malloc(size*sizeof(int));
-    for (int i=0; i < size; i++) 
+    for (int i=0; i < size; i++)
         theProblem->constrainedNodes[i] = -1;
-    
-    theProblem->geometry = theGeometry;  
+
+    theProblem->geometry = theGeometry;
     if (theGeometry->theElements->nLocalNode == 3) {
         theProblem->space    = femDiscreteCreate(3,FEM_TRIANGLE);
         theProblem->rule     = femIntegrationCreate(3,FEM_TRIANGLE); }
     if (theGeometry->theElements->nLocalNode == 4) {
         theProblem->space    = femDiscreteCreate(4,FEM_QUAD);
         theProblem->rule     = femIntegrationCreate(4,FEM_QUAD); }
-    theProblem->system   = femFullSystemCreate(size); 
+
 
 
     char theLine[MAXNAME];
@@ -632,17 +631,17 @@ femProblem* femElasticityRead(femGeo* theGeometry, const char *filename)
     char theArgument[MAXNAME];
     double value;
     double typeCondition;
-    
+
     while (!feof(file)) {
-        ErrorScan(fscanf(file,"%19[^\n]s \n",(char *)&theLine));
+        ErrorScan(fscanf(file,"%19[^\n]s \n",(char *) &theLine));
         if (strncasecmp(theLine,"Type of problem     ",19) == 0) {
             ErrorScan(fscanf(file,":  %[^\n]s \n",(char *)&theArgument));
             if (strncasecmp(theArgument,"Planar stresses",13) == 0)
-               theProblem->planarStrainStress = PLANAR_STRESS; 
+                theProblem->planarStrainStress = PLANAR_STRESS;
             if (strncasecmp(theArgument,"Planar strains",13) == 0)
-               theProblem->planarStrainStress = PLANAR_STRAIN; 
+                theProblem->planarStrainStress = PLANAR_STRAIN;
             if (strncasecmp(theArgument,"Axi-symetric problem",13) == 0)
-               theProblem->planarStrainStress = AXISYM; }
+                theProblem->planarStrainStress = AXISYM; }
         if (strncasecmp(theLine,"Young modulus       ",19) == 0) {
             ErrorScan(fscanf(file,":  %le\n",&theProblem->E)); }
         if (strncasecmp(theLine,"Poisson ratio       ",19) == 0) {
@@ -656,18 +655,26 @@ femProblem* femElasticityRead(femGeo* theGeometry, const char *filename)
             if (strncasecmp(theArgument,"Dirichlet-X",19) == 0)
                 typeCondition = DIRICHLET_X;
             if (strncasecmp(theArgument,"Dirichlet-Y",19) == 0)
-                typeCondition = DIRICHLET_Y;                
+                typeCondition = DIRICHLET_Y;
             if (strncasecmp(theArgument,"Neumann-X",19) == 0)
                 typeCondition = NEUMANN_X;
             if (strncasecmp(theArgument,"Neumann-Y",19) == 0)
-                typeCondition = NEUMANN_Y;                
-            femElasticityAddBoundaryCondition(theProblem,theDomain,typeCondition,value); }
+                typeCondition = NEUMANN_Y;
+            femElasticityAddBoundaryCondition(theProblem,theDomain,typeCondition,value);
+
+        }
+        if (strncasecmp(theLine,"Problem            ",19) == 0){
+            if (strncasecmp(theArgument,"FEM_FULL",19) == 0)
+                theProblem ->theSolver->type = FEM_FULL;
+            if (strncasecmp(theArgument,"FEM_BAND",19) == 0)
+                theProblem ->theSolver->type = FEM_BAND;
+        }
         ErrorScan(fscanf(file,"\n")); }
- 
+
     int iCase = theProblem->planarStrainStress;
     double E = theProblem->E;
     double nu = theProblem->nu;
-    
+
     if (iCase == PLANAR_STRESS) {
         theProblem->A = E/(1-nu*nu);
         theProblem->B = E*nu/(1-nu*nu);
@@ -676,11 +683,19 @@ femProblem* femElasticityRead(femGeo* theGeometry, const char *filename)
         theProblem->A = E*(1-nu)/((1+nu)*(1-2*nu));
         theProblem->B = E*nu/((1+nu)*(1-2*nu));
         theProblem->C = E/(2*(1+nu)); }
+    else if(theProblem ->theSolver->type == FEM_FULL){
+        theProblem->system   = femFullSystemCreate(size);
+    }
+    else if(theProblem->theSolver->type == FEM_BAND){
+        femMeshRenumber(theProblem, FEM_YNUM);
+        int band = femMeshComputeBand(theGeometry->theElements);
+        theProblem->system = femBandSystemCreate(size,band);
 
-
+    }
     fclose(file);
     return theProblem;
 }
+
 
 
 void femFieldWrite(int size, int shift, double* value, const char *filename) {
@@ -707,7 +722,6 @@ int femFieldRead(int* size, int shift, double* value, const char *filename) {
     fclose(file);
     return *size;
 }
-
 
 
 double femMin(double *x, int n) 
@@ -757,208 +771,140 @@ void femWarning(char *text, int line, char *file)
 
 // Band System ///////////////////////////////////////////////////////////////////////////////////////////////
 
+double *theGlobalCoord;
 
 
-void femBandSystemAdd(femBandSystem *myBandSystem, int row, int col, double value){
-    int band = myBandSystem->band;
+void femBandSystemInit(femBandSystem *myBandSystem)
+{
+    int i;
     int size = myBandSystem->size;
-    if (fabs(row - col) <= band){
-        myBandSystem->A[row][col-row+band] = value;
-    }
-    else{
-        printf("Error : Element out of band");
-    }
-}    
-
-int femCompareBandNode(const void* a, const void* b){
-    femBandNode* nodeA = (femBandNode*)a;
-    femBandNode* nodeB = (femBandNode*)b;
-    if(nodeA->x < nodeB->x){
-        return -1;
-    }
-    else if(nodeA->x > nodeB->x){
-        return 1;
-    }
-    else{
-        return 0;
-        }
-    }
-
-
-void femPermutation(femTriplet* triplet,femNodes* theNodes, int count, double* perm){
-    // Créer Nodes
-    femBandNode *bandNodes = malloc(sizeof(femBandNode)*theNodes->nNodes);
-    for (int i = 0; i < theNodes->nNodes; i++){
-        bandNodes[i].x = theNodes->X[i];
-        bandNodes[i].y = theNodes->Y[i];
-        bandNodes[i].index = i;
-    }
-    // Fonction de comparaison pour permutation
-    qsort(bandNodes,theNodes->nNodes,sizeof(femBandNode),femCompareBandNode);
-
-    // Faire permutation
-    for (int i = 0; i < theNodes->nNodes; i++){
-        perm[2*bandNodes[i].index] = i*2;
-        perm[2*bandNodes[i].index+1] = i*2+1;
-    }
-
-    // Faire permutation sur triplet
-    for (int i = 0; i < count; i++){
-        triplet[i].row = perm[triplet[i].row];
-        triplet[i].col = perm[triplet[i].col];
-    }
-}
-
-int femComputeBand(femTriplet* triplet, int count, int size){
-    int band = 0;
-    for (int i = 0; i < count; i++){
-        if (fabs(triplet[i].row - triplet[i].col) > band){
-            band = fabs(triplet[i].row - triplet[i].col);
-        }
-    }
-    if (band > size){
-        band = size;
-    }
-    return band;
+    int band = myBandSystem->band;
+    for (i=0 ; i < size*(band+1) ; i++)
+        myBandSystem->B[i] = 0;
 }
 
 femBandSystem *femBandSystemCreate(int size, int band)
 {
-    femBandSystem *theSystem = malloc(sizeof(femBandSystem));
-    femBandSystemAlloc(theSystem, size, band);
-    femBandSystemInit(theSystem, band);
-    return theSystem; 
+    femBandSystem *myBandSystem = malloc(sizeof(femBandSystem));
+    myBandSystem->B = malloc(sizeof(double)*size*(band+1));
+    myBandSystem->A = malloc(sizeof(double*)*size);
+    myBandSystem->size = size;
+    myBandSystem->band = band;
+    myBandSystem->A[0] = myBandSystem->B + size;
+    int i;
+    for (i=1 ; i < size ; i++)
+        myBandSystem->A[i] = myBandSystem->A[i-1] + band - 1;
+    femBandSystemInit(myBandSystem);
+    return(myBandSystem);
 }
 
-void femBandSystemFree(femBandSystem *theSystem)
+
+int compare(const void *nodeOne, const void *nodeTwo)
 {
-    free(theSystem->A);
-    free(theSystem->B);
-    free(theSystem);
+    int *iOne = (int *)nodeOne;
+    int *iTwo = (int *)nodeTwo;
+    double diff = theGlobalCoord[*iOne] - theGlobalCoord[*iTwo];
+    if (diff < 0)    return  1;
+    if (diff > 0)    return -1;
+    return  0;
 }
 
-void femBandSystemAlloc(femBandSystem *mySystem, int size, int band)
+void femMeshRenumber(femNodes *nodes, femRenumType renumType)
 {
-    int i;  
-    double *elem = malloc(sizeof(double) * size * (band+1)); 
-    mySystem->A = malloc(sizeof(double*) * size); 
-    mySystem->B = elem;
-    mySystem->A[0] = elem + size;  
-    mySystem->size = size;
-    mySystem->band = band;
-    for (i=1 ; i < size ; i++) 
-        mySystem->A[i] = mySystem->A[i-1] + band + 1;
+    int i, *inverse;
+
+    switch (renumType) {
+        case FEM_NO :
+            for (i = 0; i < nodes->nNodes; i++)
+                nodes->number[i] = i;
+            break;
+        case FEM_XNUM :
+            inverse = malloc(sizeof(int)*nodes->nNodes);
+            for (i = 0; i < nodes->nNodes; i++)
+                inverse[i] = i;
+            theGlobalCoord = nodes->X;
+            qsort(inverse, nodes->nNodes, sizeof(int), compare);
+            for (i = 0; i < nodes->nNodes; i++)
+                nodes->number[inverse[i]] = i;
+            free(inverse);
+            break;
+        case FEM_YNUM :
+            inverse = malloc(sizeof(int)*nodes->nNodes);
+            for (i = 0; i < nodes->nNodes; i++)
+                inverse[i] = i;
+            theGlobalCoord = nodes->Y;
+            qsort(inverse, nodes->nNodes, sizeof(int), compare);
+            for (i = 0; i < nodes->nNodes; i++)
+                nodes->number[inverse[i]] = i;
+            free(inverse);
+            break;
+        default : Error("Unexpected renumbering option"); }
 }
 
 
-void femBandSystemInit(femBandSystem *mySystem, int band)
+
+int femMeshComputeBand(femMesh *theMesh)
 {
-    int i,j;
-    int size = mySystem->size;
-    for (i=0 ; i < size ; i++) 
-        for (j=0 ; j < band+1 ; j++) 
-            mySystem->A[i][j] = 0;
-    for (i=0 ; i < size ; i++) 
-        mySystem->B[i] = 0;
+    int iElem,j,myMax,myMin,myBand,map[4];
+    int nLocal = theMesh->nLocalNode;
+    myBand = 0;
+    for(iElem = 0; iElem < theMesh->nElem; iElem++) {
+        for (j=0; j < nLocal; ++j)
+            map[j] = theMesh->number[theMesh->elem[iElem*nLocal+j]];
+        myMin = map[0];
+        myMax = map[0];
+        for (j=1; j < nLocal; j++) {
+            myMax = fmax(map[j],myMax);
+            myMin = fmin(map[j],myMin); }
+        if (myBand < (myMax - myMin)) myBand = myMax - myMin; }
+    return(++myBand);
 }
 
-void femBandSystemPrint(femBandSystem *mySystem)
-{
-    double  **A, *B;
-    int     i, j, size, band;
-    
-    A    = mySystem->A;
-    B    = mySystem->B;
-    size = mySystem->size;
-    band = mySystem->band;
-    
-    for (i=0; i < size; i++) {
-        for (j=0; j < band+1; j++)
-            if (A[i][j] == 0)  printf("         ");   
-            else               printf(" %+.1e",A[i][j]);
-        printf(" :  %+.1e \n",B[i]); }
-}
 
-double* femBandSystemEliminate(femBandSystem *myBandSystem, double *x)
+
+double  *femBandSystemEliminate(femBandSystem *myBand)
 {
     double  **A, *B, factor;
-    int     i, j, k, size, band;
-    
-    A    = myBandSystem->A;
-    B    = myBandSystem->B;
-    size = myBandSystem->size;
-    band = myBandSystem->band;
-    
-    /* Gauss elimination */
-    
+    int     i, j, k, jend, size, band;
+    A    = myBand->A;
+    B    = myBand->B;
+    size = myBand->size;
+    band = myBand->band;
+
+    /* Incomplete Cholesky factorization */
+
     for (k=0; k < size; k++) {
-        if ( fabs(A[k][band]) <= 1e-16 ) {
-            printf("Pivot index %d  ",k);
-            printf("Pivot value %e  ",A[k][band]);
-            Error("Cannot eliminate with such a pivot"); }
-        for (i = k+1 ; i <  size; i++) {
-            factor = A[i][band] / A[k][band];
-            for (j = k+1 ; j < band+1; j++) 
+        if ( fabs(A[k][k]) <= 1e-4 ) {
+            Error("Cannot eleminate with such a pivot"); }
+        jend = fmin(k + band,size);
+        for (i = k+1 ; i <  jend; i++) {
+            factor = A[k][i] / A[k][k];
+            for (j = i ; j < jend; j++)
                 A[i][j] = A[i][j] - A[k][j] * factor;
             B[i] = B[i] - B[k] * factor; }}
-    
+
     /* Back-substitution */
-    
-    for (i = size-1; i >= 0 ; i--) {
+
+    for (i = (size-1); i >= 0 ; i--) {
         factor = 0;
-        for (j = i+1 ; j < band+1; j++)
+        jend = fmin(i + band,size);
+        for (j = i+1 ; j < jend; j++)
             factor += A[i][j] * B[j];
-        B[i] = ( B[i] - factor)/A[i][band]; }
-    
-    return(myBandSystem->B);    
+        B[i] = ( B[i] - factor)/A[i][i]; }
+
+    return(myBand->B);
 }
 
 
-double* femFullSystemElimitateBand(femFullSystem *mySystem,femNodes* theNodes){
-    /*Je crée ma sous structure triplet*/
-    int count = 0;
-    for (int i = 0; i < mySystem ->size; i++){
-        for(int j = 0 ; j < mySystem -> size ; j++){
-            if(mySystem ->A[i][j] != 0.0){
-                count += 1;
-            }
-        }
+void femDenumber(femNodes *theNodes, int size, double *solution)
+{
+    int i;
+    double BInverse[size];
+
+    for (i=0 ; i < size ; i++){
+        BInverse[i] = solution[2*theNodes->number[i/2]+i%2];
     }
-    femTriplet *triplet = malloc(sizeof(femTriplet)*count);
-    int n = 0;
-    for (int i = 0; i < mySystem ->size; i++){
-        for(int j = 0 ; j < mySystem -> size ; j++){
-            if(mySystem ->A[i][j] != 0.0){
-                triplet[n].row = i;
-                triplet[n].col = j;
-                triplet[n].value = mySystem ->A[i][j];
-                n += 1;
-            }
-            
-        }
-    }
-    // Permutation
-    double* perm = malloc(theNodes->nNodes * sizeof(double));
-    femPermutation(triplet,theNodes,count,perm);
-
-    // On calcule la bande
-    int band = femComputeBand(triplet,count,mySystem->size);
-
-    // On initialise notre nouveau système bande
-    femBandSystem *myBandSystem = femBandSystemCreate(mySystem->size,band);
-
-    // On remplit notre nouveau système bande avec les valeurs de notre ancien système full
-    for (int i = 0; i < count; i++){
-        int row = triplet[i].row;
-        int col = triplet[i].col;
-        double value = triplet[i].value;
-        femBandSystemAdd(myBandSystem,row,col,value);
-    }
-    myBandSystem->B = mySystem->B;
-
-    return femBandSystemEliminate(myBandSystem, perm);
-
+    memcpy(solution,BInverse,sizeof(double)*size);
 }
-
 
 

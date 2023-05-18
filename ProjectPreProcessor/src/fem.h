@@ -1,3 +1,4 @@
+
 /*
  *  fem.c
  *  Library for LEPL1110 : Finite Elements for dummies
@@ -14,23 +15,23 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include "gmshc.h"
+#include "gmsh.h"
 
 
 #define ErrorScan(a)   femErrorScan(a,__LINE__,__FILE__)
 #define ErrorGmsh(a)   femErrorGmsh(a,__LINE__,__FILE__)
 #define Error(a)       femError(a,__LINE__,__FILE__)
 #define Warning(a)     femWarning(a,  __LINE__, __FILE__)
-#define FALSE 0 
+#define FALSE 0
 #define TRUE  1
 #define MAXNAME 256
 
 typedef enum {FEM_TRIANGLE,FEM_QUAD} femElementType;
 typedef enum {DIRICHLET_X,DIRICHLET_Y,DIRICHLET_N,DIRICHLET_T,
-              NEUMANN_X,NEUMANN_Y,NEUMANN_N,NEUMANN_T} femBoundaryType;
+    NEUMANN_X,NEUMANN_Y,NEUMANN_N,NEUMANN_T} femBoundaryType;
 typedef enum {PLANAR_STRESS,PLANAR_STRAIN,AXISYM} femElasticCase;
-
-typedef enum {FULL, BAND} femSolverType;
+typedef enum {FEM_NO,FEM_XNUM,FEM_YNUM} femRenumType;
+typedef enum {FEM_FULL,FEM_BAND} femSolverType;
 
 
 typedef struct {
@@ -71,7 +72,7 @@ typedef struct {
     void (*phi2)(double xsi, double eta, double *phi);
     void (*dphi2dx)(double xsi, double eta, double *dphidxsi, double *dphideta);
 } femDiscrete;
-    
+
 typedef struct {
     int n;
     const double *xsi;
@@ -88,7 +89,7 @@ typedef struct {
 
 typedef struct {
     femDomain* domain;
-    femBoundaryType type; 
+    femBoundaryType type;
     double value;
 } femBoundaryCondition;
 
@@ -98,12 +99,14 @@ typedef struct {
     double A,B,C;
     int planarStrainStress;
     int nBoundaryConditions;
-    femBoundaryCondition **conditions;  
-    int *constrainedNodes; 
+    femBoundaryCondition **conditions;
+    int *constrainedNodes;
     femGeo *geometry;
     femDiscrete *space;
     femIntegration *rule;
     femFullSystem *system;
+    femSolverType solverType;
+    femRenumType renumType;
 } femProblem;
 
 
@@ -113,12 +116,10 @@ double              geoSize(double x, double y);
 double              geoSizeDefault(double x, double y);
 void                geoSetSizeCallback(double (*geoSize)(double x, double y));
 void                geoMeshGenerate();
+void                geoBasicElasticityProblem();
 void                geoMeshGenerateGeo();
-void                geoMeshGenerateGeo2();
-void                geoMeshGenerateGeo3();
-void                geoMeshGenerateGeo2bon();
-void                geoMeshGenerateGeobon();
 void                geoMeshGenerateGeoFile(const char *filename);
+void                designHouse(double w, double h, double r_w, double r_h, double w_w, double d_w, double d_h, double meshSizeFactor);
 void                geoMeshImport();
 void                geoMeshPrint();
 void                geoMeshWrite(const char *filename);
@@ -128,8 +129,8 @@ int                 geoGetDomain(char *name);
 void                geoFinalize();
 void                geoFree();
 
-femProblem*         femElasticityCreate(femGeo* theGeometry, 
-                                      double E, double nu, double rho, double g, femElasticCase iCase);
+femProblem*         femElasticityCreate(femGeo* theGeometry,
+                                        double E, double nu, double rho, double g, femElasticCase iCase, femSolverType iSolver, femRenumType iRenum);
 void                femElasticityFree(femProblem *theProblem);
 void                femElasticityPrint(femProblem *theProblem);
 void                femElasticityAddBoundaryCondition(femProblem *theProblem, char *nameDomain, femBoundaryType type, double value);
@@ -164,6 +165,6 @@ void                femError(char *text, int line, char *file);
 void                femErrorScan(int test, int line, char *file);
 void                femErrorGmsh(int test, int line, char *file);
 void                femWarning(char *text, int line, char *file);
-void geoBasicElasticityProblem();
+
 
 #endif

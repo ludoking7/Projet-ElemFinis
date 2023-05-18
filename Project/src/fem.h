@@ -29,13 +29,15 @@ typedef enum {DIRICHLET_X,DIRICHLET_Y,DIRICHLET_N,DIRICHLET_T,
               NEUMANN_X,NEUMANN_Y,NEUMANN_N,NEUMANN_T} femBoundaryType;
 typedef enum {PLANAR_STRESS,PLANAR_STRAIN,AXISYM} femElasticCase;
 
-typedef enum {FULL, BAND} femSolverType;
+typedef enum {FEM_FULL,FEM_BAND,FEM_ITER} femSolverType;
 
+typedef enum {FEM_NO,FEM_XNUM,FEM_YNUM} femRenumType;
 
 typedef struct {
     int nNodes;
     double *X;
     double *Y;
+    int *number;
 } femNodes;
 
 typedef struct {
@@ -43,6 +45,7 @@ typedef struct {
     int nElem;
     int *elem;
     femNodes *nodes;
+    int* number;
 } femMesh;
 
 typedef struct {
@@ -51,6 +54,8 @@ typedef struct {
     int *elem;
     char name[MAXNAME];
 } femDomain;
+
+
 
 typedef struct {
     double LxPlate, LyPlate;
@@ -84,13 +89,18 @@ typedef struct {
     int size;
 } femFullSystem;
 
-typedef struct{
+typedef struct {
     double *B;
     double **A;
     int size;
     int band;
 } femBandSystem;
 
+typedef struct {
+    femSolverType type;
+    femFullSystem *local;
+    void *solver;
+}femSolver;
 
 typedef struct {
     femDomain* domain;
@@ -98,19 +108,6 @@ typedef struct {
     double value;
 } femBoundaryCondition;
 
-
-typedef struct {
-    int row;
-    int col;
-    double value;
-} femTriplet;
-
-
-typedef struct {
-    double x;
-    double y;
-    int index; 
-} femBandNode;
 
 typedef struct {
     double E,nu,rho,g;
@@ -122,10 +119,9 @@ typedef struct {
     femGeo *geometry;
     femDiscrete *space;
     femIntegration *rule;
-    femFullSystem *system;
+    void *system;
+    femSolver *theSolver;
 } femProblem;
-
-
 
 
 void                geoInitialize();
@@ -181,16 +177,13 @@ void                femErrorScan(int test, int line, char *file);
 void                femErrorGmsh(int test, int line, char *file);
 void                femWarning(char *text, int line, char *file);
 
-double*             femFullSystemElimitateBand(femFullSystem *mySysteme,femNodes* theNodes);
-int                 femCompareBandNode(const void* a, const void* b);
-void                femPermutation(femTriplet* triplet,femNodes* theNodes, int count, double* perm);
-int                 femComputeBand(femTriplet* triplet, int count, int size);
-femBandSystem       *femBandSystemCreate(int size, int band);
-void                femBandSystemFree(femBandSystem *theSystem);
-void                femBandSystemAlloc(femBandSystem *mySystem, int size, int band);
-void                femBandSystemInit(femBandSystem *mySystem, int band);
-void                femBandSystemPrint(femBandSystem *mySystem);
-void                femBandSystemAdd(femBandSystem *myBandSystem, int row, int col, double value);
+int                 compare(const void *nodeOne, const void *nodeTwo);
+void                femMeshRenumber(femNodes *nodes, femRenumType renumType);
+int                 femMeshComputeBand(femMesh *theMesh);
+femBandSystem*      femBandSystemCreate(int size, int band);
+void                femBandSystemInit(femBandSystem* myBand);
+double              *femBandSystemEliminate(femBandSystem *myBand);
+void                femDenumber(femNodes *theNodes, int size, double *solution);
 
 
 #endif
